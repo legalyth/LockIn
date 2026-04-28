@@ -9,6 +9,10 @@ async function register(req, res) {
     return res.status(400).json({ error: 'Username, email, and password are required.' });
   }
 
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+  }
+
   try {
     const hashed = await hashPassword(password);
     await pool.query(
