@@ -1,18 +1,22 @@
 # Lock-In
 
-A secure, full-stack Kanban-style task management application with JWT authentication. Organize your work across three columns — **To Do**, **Doing**, and **Done** — with priority levels, due dates, and full CRUD operations.
+A secure, full-stack Kanban-style task management application with JWT authentication. Organize your work across three columns — **To Do**, **Doing**, and **Done** — with priority levels, due dates, tags, and full CRUD operations.
 
 ## Tech Stack
 
-| Layer    | Technology                  |
-| -------- | --------------------------- |
-| Frontend | Vue.js 3 (Composition API)  |
-| Styling  | Tailwind CSS                |
-| State    | Pinia                       |
-| Router   | Vue Router 4                |
-| Backend  | Node.js + Express.js        |
-| Database | MySQL                       |
-| Auth     | JWT (jsonwebtoken) + bcrypt |
+| Layer            | Technology                  |
+| ---------------- | --------------------------- |
+| Frontend         | Vue.js 3 (Composition API)  |
+| Styling          | Tailwind CSS                |
+| State            | Pinia                       |
+| Router           | Vue Router 4                |
+| Build Tool       | Vite                        |
+| HTTP Client      | Axios                       |
+| Backend          | Node.js + Express.js        |
+| Database         | MySQL 8.0                   |
+| Auth             | JWT (jsonwebtoken) + bcrypt |
+| Security Headers | Helmet.js                   |
+| Rate Limiting    | express-rate-limit          |
 
 ## Prerequisites
 
@@ -25,11 +29,24 @@ A secure, full-stack Kanban-style task management application with JWT authentic
 ### 1. Clone the repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/legalyth/LockIn.git
 cd lockin
 ```
 
-### 2. Create the MySQL database
+### 2. Install all dependencies
+
+```bash
+# Root dependencies (concurrently)
+npm install
+
+# Backend dependencies
+cd backend && npm install && cd ..
+
+# Frontend dependencies
+cd frontend && npm install && cd ..
+```
+
+### 3. Create the MySQL database
 
 Open your MySQL client and run the schema:
 
@@ -39,7 +56,7 @@ mysql -u root -p < backend/db/schema.sql
 
 Or copy-paste the contents of `backend/db/schema.sql` into your MySQL client.
 
-### 3. Configure the backend environment
+### 4. Configure the backend environment
 
 ```bash
 cd backend
@@ -55,44 +72,45 @@ DB_PASS=your_mysql_password
 DB_NAME=lockin
 JWT_SECRET=change_this_to_a_long_random_secret
 PORT=3000
+CLIENT_ORIGIN=http://localhost:5173
 ```
 
 > **Important:** Change `JWT_SECRET` to a long, random string before deploying to production.
 
-### 4. Start the backend server
+### 5. Start the application
+
+**Option A — Both servers at once (recommended):**
 
 ```bash
-cd backend
-npm install
-node server.js
-```
-
-The API will be available at `http://localhost:3000`.
-
-### 5. Start the frontend dev server
-
-Open a new terminal:
-
-```bash
-cd frontend
-npm install
+# From the project root
 npm run dev
 ```
 
-The app will be available at `http://localhost:5173`.
+**Option B — Separately:**
+
+```bash
+# Terminal 1 — Backend API (http://localhost:3000)
+cd backend
+npm run dev
+
+# Terminal 2 — Frontend (http://localhost:5173)
+cd frontend
+npm run dev
+```
 
 ---
 
 ## API Endpoints
 
-| Method | Route              | Auth Required | Description             |
-| ------ | ------------------ | :-----------: | ----------------------- |
-| POST   | /api/auth/register |      No       | Register a new user     |
-| POST   | /api/auth/login    |      No       | Login and receive a JWT |
-| GET    | /api/tasks         |      Yes      | Get all tasks for user  |
-| POST   | /api/tasks         |      Yes      | Create a new task       |
-| PATCH  | /api/tasks/:id     |      Yes      | Update an existing task |
-| DELETE | /api/tasks/:id     |      Yes      | Delete a task           |
+| Method | Route              | Auth Required | Description                 |
+| ------ | ------------------ | :-----------: | --------------------------- |
+| POST   | /api/auth/register |      No       | Register a new user         |
+| POST   | /api/auth/login    |      No       | Login and receive a JWT     |
+| PATCH  | /api/auth/profile  |      Yes      | Update username or password |
+| GET    | /api/tasks         |      Yes      | Get all tasks for the user  |
+| POST   | /api/tasks         |      Yes      | Create a new task           |
+| PATCH  | /api/tasks/:id     |      Yes      | Update an existing task     |
+| DELETE | /api/tasks/:id     |      Yes      | Delete a task               |
 
 Protected routes require the `Authorization: Bearer <token>` header.
 
@@ -102,25 +120,26 @@ Protected routes require the `Authorization: Bearer <token>` header.
 
 ```
 lockin/
+├── package.json                # Root — concurrently script
 ├── backend/
 │   ├── server.js               # Express app entry point
 │   ├── .env                    # Environment variables (not committed)
 │   ├── .env.example            # Environment variable template
 │   ├── package.json
 │   ├── db/
-│   │   ├── connection.js       # MySQL connection pool
-│   │   └── schema.sql          # Database schema
+│   │   ├── connection.js       # MySQL connection pool (mysql2/promise)
+│   │   └── schema.sql          # Database schema (users + tasks)
 │   ├── middleware/
 │   │   └── authMiddleware.js   # JWT verification middleware
 │   ├── controllers/
-│   │   ├── authController.js   # Register/login logic
-│   │   └── taskController.js   # CRUD task logic
+│   │   ├── authController.js   # register(), login(), updateProfile()
+│   │   └── taskController.js   # getTasks(), createTask(), updateTask(), deleteTask()
 │   ├── routes/
-│   │   ├── auth.js             # Auth routes
-│   │   └── tasks.js            # Task routes (protected)
+│   │   ├── auth.js             # POST /api/auth/register, /login, PATCH /api/auth/profile
+│   │   └── tasks.js            # GET/POST/PATCH/DELETE /api/tasks (protected)
 │   └── utils/
-│       ├── hash.js             # bcrypt helpers
-│       └── jwt.js              # JWT helpers
+│       ├── hash.js             # bcrypt helpers: hashPassword(), verifyPassword()
+│       └── jwt.js              # JWT helpers: generateToken(), verifyToken()
 │
 ├── frontend/
 │   ├── index.html
@@ -133,33 +152,45 @@ lockin/
 │       ├── App.vue             # Root component
 │       ├── style.css           # Tailwind directives
 │       ├── api/
-│       │   └── axios.js        # Axios instance with interceptors
+│       │   └── axios.js        # Axios instance with auth interceptors
 │       ├── router/
 │       │   └── index.js        # Vue Router with auth guards
 │       ├── stores/
-│       │   ├── authStore.js    # Pinia auth store
-│       │   └── taskStore.js    # Pinia task store
+│       │   ├── authStore.js    # Auth: login/register/logout, token management
+│       │   ├── taskStore.js    # Tasks: CRUD, search, filter, sort
+│       │   ├── themeStore.js   # Dark mode toggle with localStorage persistence
+│       │   └── toastStore.js   # Global toast notification queue
 │       ├── views/
 │       │   ├── LoginView.vue
 │       │   ├── RegisterView.vue
-│       │   └── DashboardView.vue
+│       │   ├── DashboardView.vue
+│       │   ├── ProfileView.vue
+│       │   └── NotFoundView.vue
 │       └── components/
 │           ├── NavBar.vue
 │           ├── KanbanBoard.vue
 │           ├── KanbanColumn.vue
 │           ├── TaskCard.vue
-│           └── TaskModal.vue
+│           ├── TaskModal.vue
+│           ├── ConfirmModal.vue
+│           └── ToastContainer.vue
 │
 └── README.md
 ```
 
 ## Features
 
-- **JWT Authentication** — Secure register/login with tokens stored in localStorage
+- **JWT Authentication** — Register, login, logout with tokens stored in localStorage or sessionStorage ("Remember me")
+- **Session Management** — 24h token expiry, 5-minute warning toast, auto-logout on expiry, 401 interception
+- **Profile Editing** — Update username and password from the profile page
 - **Kanban Board** — Three columns: To Do, Doing, Done
-- **Task Management** — Create, edit, delete, and move tasks between columns
-- **Priority Levels** — Low (green), Medium (yellow), High (red)
-- **Due Dates** — Optional date picker per task
-- **Ownership Enforcement** — Users can only access their own tasks
-- **Responsive Design** — Works on mobile and desktop
-- **SQL Injection Prevention** — All queries use parameterized placeholders
+- **Task Management** — Full CRUD: create, edit, delete, and move tasks between columns
+- **Task Attributes** — Title, description, status, priority (low/medium/high), due date, tags
+- **Real-time Search & Filter** — Filter by title/description, priority, sort by newest/due date/priority
+- **Overdue Detection** — Red border and badge on overdue cards, overdue counter in stats banner
+- **Statistics Banner** — Total, done, doing, overdue counts with a progress bar
+- **Dark Mode** — Full Tailwind dark mode toggle persisted in localStorage
+- **Toast Notifications** — Success/error/info toasts with auto-dismiss
+- **Delete Confirmation** — Modal dialog before destructive delete actions
+- **Responsive Design** — Single column on mobile, three-column grid on desktop
+- **Security** — bcrypt password hashing, JWT signing, parameterized SQL queries, Helmet.js headers, rate limiting, CORS restriction, ownership enforcement on all task queries
