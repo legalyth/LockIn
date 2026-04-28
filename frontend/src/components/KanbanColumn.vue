@@ -27,9 +27,16 @@
       </div>
     </template>
 
+    <!-- Task list -->
+    <div v-else class="flex flex-col gap-3">
+      <Transition v-for="element in tasks" :key="element.id" name="card" appear>
+        <TaskCard :task="element" @edit-task="$emit('edit-task', element)" />
+      </Transition>
+    </div>
+
     <!-- Empty state -->
     <div
-      v-else-if="tasks.length === 0"
+      v-if="!taskStore.loading && tasks.length === 0"
       class="flex-1 flex flex-col items-center justify-center gap-3 py-8 text-gray-400"
     >
       <svg
@@ -55,29 +62,11 @@
         + Add a task
       </button>
     </div>
-
-    <!-- Draggable task list -->
-    <draggable
-      v-else
-      v-model="localTasks"
-      group="tasks"
-      item-key="id"
-      class="flex flex-col gap-3"
-      ghost-class="opacity-30"
-      @end="onDragEnd"
-    >
-      <template #item="{ element }">
-        <Transition name="card" appear>
-          <TaskCard :task="element" @edit-task="$emit('edit-task', element)" />
-        </Transition>
-      </template>
-    </draggable>
   </div>
 </template>
 
 <script setup>
-import { computed, ref, watch } from "vue";
-import draggable from "vuedraggable";
+import { computed } from "vue";
 import TaskCard from "./TaskCard.vue";
 import { useTaskStore } from "../stores/taskStore.js";
 
@@ -90,23 +79,6 @@ const props = defineProps({
 
 const emit = defineEmits(["edit-task", "open-create"]);
 const taskStore = useTaskStore();
-
-const localTasks = ref([...props.tasks]);
-watch(
-  () => props.tasks,
-  (val) => {
-    localTasks.value = [...val];
-  },
-);
-
-async function onDragEnd(evt) {
-  if (evt.from !== evt.to) {
-    const task = evt.item?._underlying_vm_;
-    if (task && task.status !== props.status) {
-      await taskStore.updateTask(task.id, { status: props.status });
-    }
-  }
-}
 
 const columnClasses = computed(() => ({
   "bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800":
